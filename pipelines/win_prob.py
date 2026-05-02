@@ -30,7 +30,7 @@ def _calibrated_logistic_pipeline(y: np.ndarray) -> CalibratedClassifierCV:
     base = SklearnPipeline(
         [
             ("scaler", StandardScaler()),
-            ("logreg", LogisticRegression(random_state=42, max_iter=2000, class_weight="balanced")),
+            ("logreg", LogisticRegression(random_state=42, max_iter=2000)),
         ]
     )
     return CalibratedClassifierCV(
@@ -101,13 +101,16 @@ class SecondInningsWinProbPipeline:
 
     def compute_features(self, df: pd.DataFrame) -> pd.DataFrame:
         features_df = pd.DataFrame()
-        innings_balls = innings_legal_balls(df)
-        max_innings_balls = innings_balls.max()
-        target = with_target(df)
-        features_df["runs_required"] = target - innings_runs(df, cumulative=True)
+        legal_before = innings_legal_balls(df)
+        features_df["target"] = with_target(df)
+        features_df["runs_required"] = features_df["target"] - innings_runs(df, cumulative=True)
         features_df["innings_wickets"] = innings_wickets(df, cumulative=True)
-        features_df["innings_legal_balls"] = innings_legal_balls(df)
-        balls_remaining = max_innings_balls - features_df["innings_legal_balls"]
+        features_df["innings_legal_balls"] = legal_before
+        # Max "legal completed before" in data is T−1 for T legal balls; quota = max + 1 per innings.
+        total_legal_in_innings = legal_before.groupby(
+            [df["match_id"], df["innings"]], sort=False
+        ).transform("max") + 1
+        balls_remaining = total_legal_in_innings - legal_before
         features_df["runs_required_per_ball"] = features_df["runs_required"] / balls_remaining.replace(
             0, np.nan
         )

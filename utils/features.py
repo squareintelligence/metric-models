@@ -2,6 +2,10 @@
 
 Each function returns a single ``pd.Series`` aligned to ``df.index``.
 Assign with ``df["your_col"] = fn(df)``.
+
+When ``cumulative=True``, totals are **before the current ball** (they exclude
+this row's contribution). ``innings_legal_balls`` counts legal deliveries
+completed before the current ball.
 """
 
 from __future__ import annotations
@@ -17,31 +21,39 @@ def _runs_series(df: pd.DataFrame) -> pd.Series:
     return df["runs_off_bat"].fillna(0) + df["extras"].fillna(0)
 
 
+def _cumsum_before_current(
+    values: pd.Series,
+    df: pd.DataFrame,
+    group_cols: list[str],
+) -> pd.Series:
+    """Inclusive group cumsum minus current row → sum over **prior** balls in the group."""
+    tmp = df.assign(_cum_val=values)
+    inclusive = tmp.groupby(group_cols, sort=False)["_cum_val"].cumsum()
+    return inclusive - tmp["_cum_val"]
+
+
 def innings_runs(df: pd.DataFrame, cumulative: bool = True) -> pd.Series:
     tmp = df.assign(_total_runs=_runs_series(df))
     gcols = ["match_id", "innings"]
     if cumulative:
-        return tmp.groupby(gcols, sort=False)["_total_runs"].cumsum()
+        return _cumsum_before_current(tmp["_total_runs"], tmp, gcols)
     return tmp.groupby(gcols, sort=False)["_total_runs"].transform("sum")
 
 
 def innings_wickets(df: pd.DataFrame, cumulative: bool = True) -> pd.Series:
-    tmp = df.assign(_is_wicket=is_wicket(df))
+    tmp = df.assign(_is_wicket=is_wicket(df).astype("int8"))
     gcols = ["match_id", "innings"]
     if cumulative:
-        return tmp.groupby(gcols, sort=False)["_is_wicket"].cumsum()
+        return _cumsum_before_current(tmp["_is_wicket"], tmp, gcols)
     return tmp.groupby(gcols, sort=False)["_is_wicket"].transform("sum")
 
 
 def innings_legal_balls(df: pd.DataFrame) -> pd.Series:
-    """Per-innings cumulative index minus cumulative wides/noballs in that innings."""
+    """Legal deliveries completed in this innings **before** the current ball."""
     is_extra = df["wides"].notna() | df["noballs"].notna()
+    legal = (~is_extra).astype("int8")
     gcols = ["match_id", "innings"]
-    ball_ix = df.groupby(gcols, sort=False).cumcount()
-    extra_so_far = is_extra.astype("int8").groupby(
-        [df["match_id"], df["innings"]], sort=False
-    ).cumsum()
-    return ball_ix - extra_so_far
+    return _cumsum_before_current(legal, df, gcols)
 
 
 def batting_team_won(df: pd.DataFrame) -> pd.Series:
@@ -91,7 +103,7 @@ def batter_runs(df: pd.DataFrame, cumulative: bool = True) -> pd.Series:
     tmp = df.assign(_total_runs=_runs_series(df))
     gcols = ["match_id", "innings", "striker"]
     if cumulative:
-        return tmp.groupby(gcols, sort=False)["_total_runs"].cumsum()
+        return _cumsum_before_current(tmp["_total_runs"], tmp, gcols)
     return tmp.groupby(gcols, sort=False)["_total_runs"].transform("sum")
 
 
@@ -99,13 +111,13 @@ def bowler_runs(df: pd.DataFrame, cumulative: bool = True) -> pd.Series:
     tmp = df.assign(_total_runs=_runs_series(df))
     gcols = ["match_id", "innings", "bowler"]
     if cumulative:
-        return tmp.groupby(gcols, sort=False)["_total_runs"].cumsum()
+        return _cumsum_before_current(tmp["_total_runs"], tmp, gcols)
     return tmp.groupby(gcols, sort=False)["_total_runs"].transform("sum")
 
 
 def bowler_wickets(df: pd.DataFrame, cumulative: bool = True) -> pd.Series:
-    tmp = df.assign(_is_wicket=is_wicket(df))
+    tmp = df.assign(_is_wicket=is_wicket(df).astype("int8"))
     gcols = ["match_id", "innings", "bowler"]
     if cumulative:
-        return tmp.groupby(gcols, sort=False)["_is_wicket"].cumsum()
+        return _cumsum_before_current(tmp["_is_wicket"], tmp, gcols)
     return tmp.groupby(gcols, sort=False)["_is_wicket"].transform("sum")
