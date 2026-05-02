@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import numpy as np
 import pandas as pd
+from sklearn.calibration import CalibratedClassifierCV
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import accuracy_score, log_loss, roc_auc_score
 from sklearn.pipeline import Pipeline as SklearnPipeline
@@ -12,7 +13,35 @@ from sklearn.preprocessing import StandardScaler
 from utils.features import *
 
 
-def _print_training_metrics(name: str, model: SklearnPipeline, x: pd.DataFrame, y: pd.Series) -> None:
+def _calibration_cv(y: np.ndarray, *, max_folds: int = 5) -> int:
+    """Pick a StratifiedKFold fold count that avoids empty classes per fold."""
+    y_int = y.astype(int)
+    n = len(y_int)
+    pos = int((y_int == 1).sum())
+    neg = n - pos
+    cap = max(pos, neg)
+    # Need at least 2 samples per class for stratified folds; cap folds by minority count.
+    cv = min(max_folds, cap, n // 2) if n >= 4 else 2
+    return max(2, cv)
+
+
+def _calibrated_logistic_pipeline(y: np.ndarray) -> CalibratedClassifierCV:
+    """Scaler + logistic regression, probability-calibrated with CV (Platt / sigmoid)."""
+    base = SklearnPipeline(
+        [
+            ("scaler", StandardScaler()),
+            ("logreg", LogisticRegression(random_state=42, max_iter=2000)),
+        ]
+    )
+    return CalibratedClassifierCV(
+        estimator=base,
+        method="sigmoid",
+        cv=_calibration_cv(y),
+        n_jobs=-1,
+    )
+
+
+def _print_training_metrics(name: str, model, x: np.ndarray, y: np.ndarray) -> None:
     """Print simple in-sample metrics for quick pipeline feedback."""
     y_pred = model.predict(x)
     y_proba = model.predict_proba(x)[:, 1]
@@ -58,14 +87,10 @@ class FirstInningsWinProbPipeline:
         features_df = features_df[first_innings_mask]
         return _sanitize_training_rows(features_df, label_col="batting_team_won")
 
-    def train(self, features: pd.DataFrame) -> SklearnPipeline:
+    def train(self, features: pd.DataFrame) -> CalibratedClassifierCV:
         x = features.drop(columns=["batting_team_won"]).to_numpy(dtype=float)
         y = features["batting_team_won"].to_numpy(dtype=float)
-        model = SklearnPipeline(
-            [
-                ("logreg", LogisticRegression(random_state=0)),
-            ]
-        )
+        model = _calibrated_logistic_pipeline(y)
         model.fit(x, y)
         _print_training_metrics("first_innings_win_prob", model, x, y)
         return model
@@ -91,14 +116,10 @@ class SecondInningsWinProbPipeline:
         features_df = features_df[features_df["runs_required"] > 0]
         return _sanitize_training_rows(features_df, label_col="batting_team_won")
 
-    def train(self, features: pd.DataFrame) -> SklearnPipeline:
+    def train(self, features: pd.DataFrame) -> CalibratedClassifierCV:
         x = features.drop(columns=["batting_team_won"]).to_numpy(dtype=float)
         y = features["batting_team_won"].to_numpy(dtype=float)
-        model = SklearnPipeline(
-            [
-                ("logreg", LogisticRegression(random_state=0)),
-            ]
-        )
+        model = _calibrated_logistic_pipeline(y)
         model.fit(x, y)
         _print_training_metrics("second_innings_win_prob", model, x, y)
         return model
