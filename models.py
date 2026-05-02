@@ -24,6 +24,6 @@ class TrainingPipeline(Protocol):
 RegistryEntry: TypeAlias = tuple[str, str, type[TrainingPipeline]]
 
 MODELS: list[RegistryEntry] = [
-    ("ipl_from_2023/first_innings/win_prob_v10", "ipl_from_2023", FirstInningsWinProbPipeline),
-    ("ipl_from_2023/second_innings/win_prob_v10", "ipl_from_2023", SecondInningsWinProbPipeline),
+    ("ipl_from_2023/first_innings/win_prob_v11", "ipl_from_2023", FirstInningsWinProbPipeline),
+    ("ipl_from_2023/second_innings/win_prob_v11", "ipl_from_2023", SecondInningsWinProbPipeline),
 ]
