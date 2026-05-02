@@ -63,7 +63,6 @@ class FirstInningsWinProbPipeline:
         y = features["batting_team_won"].to_numpy(dtype=float)
         model = SklearnPipeline(
             [
-                ("scaler", StandardScaler()),
                 ("logreg", LogisticRegression(random_state=0)),
             ]
         )
@@ -97,7 +96,6 @@ class SecondInningsWinProbPipeline:
         y = features["batting_team_won"].to_numpy(dtype=float)
         model = SklearnPipeline(
             [
-                ("scaler", StandardScaler()),
                 ("logreg", LogisticRegression(random_state=0)),
             ]
         )
