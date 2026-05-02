@@ -35,7 +35,7 @@ def _calibrated_xgb_pipeline(y: np.ndarray) -> CalibratedClassifierCV:
         random_state=42,
         n_jobs=-1,
         eval_metric="logloss",
-        max_depth=4,
+        max_depth=2,
         n_estimators=300,
         learning_rate=0.08,
         subsample=0.85,
