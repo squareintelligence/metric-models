@@ -4,7 +4,7 @@ from typing import Protocol, TypeAlias
 
 import pandas as pd
 
-from pipelines.ball_impact import Pipeline as BallImpactPipeline
+from pipelines.win_prob import FirstInningsWinProbPipeline, SecondInningsWinProbPipeline
 
 __all__ = ["TrainingPipeline", "MODELS"]
 
@@ -24,5 +24,6 @@ class TrainingPipeline(Protocol):
 RegistryEntry: TypeAlias = tuple[str, str, type[TrainingPipeline]]
 
 MODELS: list[RegistryEntry] = [
-    ("ball_impact_v1", "ball_impact_training", BallImpactPipeline),
+    ("ipl_from_2023/first_innings/win_prob", "ipl_from_2023", FirstInningsWinProbPipeline),
+    ("ipl_from_2023/second_innings/win_prob", "ipl_from_2023", SecondInningsWinProbPipeline),
 ]
