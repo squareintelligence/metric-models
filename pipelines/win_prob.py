@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import numpy as np
 import pandas as pd
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import accuracy_score, log_loss, roc_auc_score
@@ -28,6 +29,19 @@ def _print_training_metrics(name: str, model: SklearnPipeline, x: pd.DataFrame, 
         flush=True,
     )
 
+
+def _sanitize_training_rows(features_df: pd.DataFrame, *, label_col: str) -> pd.DataFrame:
+    """Drop rows with NaN/inf in features or label to keep sklearn fit stable."""
+    cleaned = features_df.replace([np.inf, -np.inf], np.nan).dropna()
+    if cleaned.empty:
+        raise ValueError("No valid rows after filtering NaN/inf values from computed features.")
+    if cleaned[label_col].nunique() < 2:
+        print(
+            f"[warn] {label_col} has a single class after cleaning; model may be degenerate.",
+            flush=True,
+        )
+    return cleaned
+
 class FirstInningsWinProbPipeline:
     """Training pipeline with ``compute_features`` + ``train``."""
 
@@ -36,13 +50,13 @@ class FirstInningsWinProbPipeline:
         features_df["innings_runs"] = innings_runs(df, cumulative=True)
         features_df["innings_wickets"] = innings_wickets(df, cumulative=True)
         features_df["innings_legal_balls"] = innings_legal_balls(df)
-        features_df["runs_per_ball"] = features_df["innings_runs"] / features_df["innings_legal_balls"]
+        denom = features_df["innings_legal_balls"].replace(0, np.nan)
+        features_df["runs_per_ball"] = features_df["innings_runs"] / denom
         features_df["batting_team_won"] = batting_team_won(df)
         first_innings_mask = with_target(df) == 0
 
         features_df = features_df[first_innings_mask]
-
-        return features_df
+        return _sanitize_training_rows(features_df, label_col="batting_team_won")
 
     def train(self, features: pd.DataFrame) -> SklearnPipeline:
         x = features.drop(columns=["batting_team_won"]).to_numpy(dtype=float)
@@ -66,15 +80,17 @@ class SecondInningsWinProbPipeline:
         innings_balls = innings_legal_balls(df)
         max_innings_balls = innings_balls.max()
         features_df["target"] = with_target(df)
-        features_df["runs_required"] = features_df["target"] -innings_runs(df, cumulative=True)
+        features_df["runs_required"] = features_df["target"] - innings_runs(df, cumulative=True)
         features_df["innings_wickets"] = innings_wickets(df, cumulative=True)
         features_df["innings_legal_balls"] = innings_legal_balls(df)
-        features_df["runs_required_per_ball"] = features_df["runs_required"] / (max_innings_balls - features_df["innings_legal_balls"])
+        balls_remaining = max_innings_balls - features_df["innings_legal_balls"]
+        features_df["runs_required_per_ball"] = features_df["runs_required"] / balls_remaining.replace(
+            0, np.nan
+        )
         features_df["batting_team_won"] = batting_team_won(df)
 
         features_df = features_df[features_df["runs_required"] > 0]
-
-        return features_df
+        return _sanitize_training_rows(features_df, label_col="batting_team_won")
 
     def train(self, features: pd.DataFrame) -> SklearnPipeline:
         x = features.drop(columns=["batting_team_won"]).to_numpy(dtype=float)
