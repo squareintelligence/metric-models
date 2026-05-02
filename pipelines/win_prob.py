@@ -5,10 +5,8 @@ from __future__ import annotations
 import numpy as np
 import pandas as pd
 from sklearn.calibration import CalibratedClassifierCV
-from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import accuracy_score, log_loss, roc_auc_score
-from sklearn.pipeline import Pipeline as SklearnPipeline
-from sklearn.preprocessing import StandardScaler
+from xgboost import XGBClassifier
 
 from utils.features import *
 
@@ -25,12 +23,25 @@ def _calibration_cv(y: np.ndarray, *, max_folds: int = 5) -> int:
     return max(2, cv)
 
 
-def _calibrated_logistic_pipeline(y: np.ndarray) -> CalibratedClassifierCV:
-    """Scaler + logistic regression, probability-calibrated with CV (Platt / sigmoid)."""
-    base = SklearnPipeline(
-        [
-            ("logreg", LogisticRegression(random_state=42, max_iter=2000, class_weight="balanced")),
-        ]
+def _calibrated_xgb_pipeline(y: np.ndarray) -> CalibratedClassifierCV:
+    """XGBoost classifier with probability calibration (sigmoid / Platt on CV folds)."""
+    y_int = y.astype(int, copy=False)
+    pos = int((y_int == 1).sum())
+    neg = int((y_int == 0).sum())
+    scale_pos_weight = (neg / pos) if pos > 0 and neg > 0 else 1.0
+
+    base = XGBClassifier(
+        objective="binary:logistic",
+        random_state=42,
+        n_jobs=-1,
+        eval_metric="logloss",
+        max_depth=4,
+        n_estimators=300,
+        learning_rate=0.08,
+        subsample=0.85,
+        colsample_bytree=0.85,
+        min_child_weight=1,
+        scale_pos_weight=scale_pos_weight,
     )
     return CalibratedClassifierCV(
         estimator=base,
@@ -89,7 +100,7 @@ class FirstInningsWinProbPipeline:
     def train(self, features: pd.DataFrame) -> CalibratedClassifierCV:
         x = features.drop(columns=["batting_team_won"]).to_numpy(dtype=float)
         y = features["batting_team_won"].to_numpy(dtype=float)
-        model = _calibrated_logistic_pipeline(y)
+        model = _calibrated_xgb_pipeline(y)
         model.fit(x, y)
         _print_training_metrics("first_innings_win_prob", model, x, y)
         return model
@@ -121,7 +132,7 @@ class SecondInningsWinProbPipeline:
     def train(self, features: pd.DataFrame) -> CalibratedClassifierCV:
         x = features.drop(columns=["batting_team_won"]).to_numpy(dtype=float)
         y = features["batting_team_won"].to_numpy(dtype=float)
-        model = _calibrated_logistic_pipeline(y)
+        model = _calibrated_xgb_pipeline(y)
         model.fit(x, y)
         _print_training_metrics("second_innings_win_prob", model, x, y)
         return model
