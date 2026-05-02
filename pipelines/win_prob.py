@@ -30,7 +30,7 @@ def _calibrated_logistic_pipeline(y: np.ndarray) -> CalibratedClassifierCV:
     base = SklearnPipeline(
         [
             ("scaler", StandardScaler()),
-            ("logreg", LogisticRegression(random_state=42, max_iter=2000)),
+            ("logreg", LogisticRegression(random_state=42, max_iter=2000, class_weight="balanced")),
         ]
     )
     return CalibratedClassifierCV(
