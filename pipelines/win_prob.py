@@ -29,7 +29,6 @@ def _calibrated_logistic_pipeline(y: np.ndarray) -> CalibratedClassifierCV:
     """Scaler + logistic regression, probability-calibrated with CV (Platt / sigmoid)."""
     base = SklearnPipeline(
         [
-            ("scaler", StandardScaler()),
             ("logreg", LogisticRegression(random_state=42, max_iter=2000)),
         ]
     )
