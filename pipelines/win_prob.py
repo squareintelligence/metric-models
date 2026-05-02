@@ -103,8 +103,8 @@ class SecondInningsWinProbPipeline:
         features_df = pd.DataFrame()
         innings_balls = innings_legal_balls(df)
         max_innings_balls = innings_balls.max()
-        features_df["target"] = with_target(df)
-        features_df["runs_required"] = features_df["target"] - innings_runs(df, cumulative=True)
+        target = with_target(df)
+        features_df["runs_required"] = target - innings_runs(df, cumulative=True)
         features_df["innings_wickets"] = innings_wickets(df, cumulative=True)
         features_df["innings_legal_balls"] = innings_legal_balls(df)
         balls_remaining = max_innings_balls - features_df["innings_legal_balls"]
