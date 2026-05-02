@@ -8,8 +8,22 @@ on:
 jobs:
   apply:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      S3_BUCKET: ${{ vars.S3_BUCKET }}
+      S3_DATASETS_PREFIX: ${{ vars.S3_DATASETS_PREFIX }}
+      S3_MODELS_PREFIX: ${{ vars.S3_MODELS_PREFIX }}
+      AWS_DEFAULT_REGION: ${{ vars.AWS_REGION }}
     steps:
       - uses: actions/checkout@v4
+
+      - name: Configure AWS credentials (OIDC → IAM role)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
 
       - name: Install uv
         uses: astral-sh/setup-uv@v5

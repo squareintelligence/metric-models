@@ -1,12 +1,28 @@
-"""Shared models used across metric pipelines."""
+"""Registry of models: (model name, dataset name, pipeline class)."""
 
-from dataclasses import dataclass
+from typing import Protocol, TypeAlias
+
+import pandas as pd
+
+from pipelines.ball_impact import Pipeline as BallImpactPipeline
+
+__all__ = ["TrainingPipeline", "MODELS"]
 
 
-@dataclass(frozen=True, slots=True)
-class PipelineResult:
-    """Outcome of a single pipeline run."""
+class TrainingPipeline(Protocol):
+    """Each pipeline module defines a ``Pipeline`` class implementing this protocol."""
 
-    pipeline_name: str
-    success: bool
-    message: str = ""
+    def compute_features(self, df: pd.DataFrame) -> pd.DataFrame:
+        """Transform raw training data into feature columns."""
+        ...
+
+    def train(self, features: pd.DataFrame) -> object:
+        """Fit and return a scikit-learn–compatible or XGBoost estimator."""
+        ...
+
+
+RegistryEntry: TypeAlias = tuple[str, str, type[TrainingPipeline]]
+
+MODELS: list[RegistryEntry] = [
+    ("ball_impact_v1", "ball_impact_training", BallImpactPipeline),
+]

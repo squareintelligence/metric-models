@@ -1,1 +1,1 @@
-"""One subpackage per pipeline; each exports ``apply()`` for orchestration."""
+"""Pipeline modules: one file per metric; each defines a ``Pipeline`` class."""
