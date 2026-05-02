@@ -40,7 +40,7 @@ def _calibrated_logistic_pipeline(y: np.ndarray) -> CalibratedClassifierCV:
             ("scaler", StandardScaler()),
             (
                 "logreg",
-                LogisticRegression(random_state=42, max_iter=2000),
+                LogisticRegression(random_state=42, max_iter=2000, class_weight="balanced"),
             ),
         ]
     )
