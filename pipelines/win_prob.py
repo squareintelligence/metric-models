@@ -102,8 +102,8 @@ class SecondInningsWinProbPipeline:
     def compute_features(self, df: pd.DataFrame) -> pd.DataFrame:
         features_df = pd.DataFrame()
         legal_before = innings_legal_balls(df)
-        features_df["target"] = with_target(df)
-        features_df["runs_required"] = features_df["target"] - innings_runs(df, cumulative=True)
+        target = with_target(df)
+        features_df["runs_required"] = target - innings_runs(df, cumulative=True)
         features_df["innings_wickets"] = innings_wickets(df, cumulative=True)
         features_df["innings_legal_balls"] = legal_before
         # Max "legal completed before" in data is T−1 for T legal balls; quota = max + 1 per innings.
