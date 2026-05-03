@@ -28,7 +28,7 @@ def _logistic_pipeline() -> SklearnPipeline:
             ("scaler", StandardScaler()),
             (
                 "logreg",
-                LogisticRegression(random_state=0, max_iter=2000, class_weight="balanced"),
+                LogisticRegression(max_iter=2000),
             ),
         ]
     )
@@ -73,7 +73,7 @@ class FirstInningsWinProbPipeline:
         features_df["innings_runs"] = innings_runs(df, cumulative=True)
         features_df["innings_wickets"] = innings_wickets(df, cumulative=True)
         features_df["innings_legal_balls"] = innings_legal_balls(df)
-        denom = features_df["innings_legal_balls"].replace(0, np.nan)
+        denom = features_df["innings_legal_balls"] + 0.000001
         features_df["runs_per_ball"] = features_df["innings_runs"] / denom
         features_df["batting_team_won"] = batting_team_won(df)
         # Explicit innings 1 only (not ``with_target == 0``, which would include innings 3+ in Tests).
@@ -99,13 +99,9 @@ class SecondInningsWinProbPipeline:
         features_df["runs_required"] = target - innings_runs(df, cumulative=True)
         features_df["innings_wickets"] = innings_wickets(df, cumulative=True)
         features_df["innings_legal_balls"] = legal_before
-        total_legal_in_innings = legal_before.groupby(
-            [df["match_id"], df["innings"]], sort=False
-        ).transform("max") + 1
+        total_legal_in_innings = int(legal_before.max()) + 1
         balls_remaining = total_legal_in_innings - legal_before
-        features_df["runs_required_per_ball"] = features_df["runs_required"] / balls_remaining.replace(
-            0, np.nan
-        )
+        features_df["runs_required_per_ball"] = features_df["runs_required"] / (balls_remaining + 0.00001)
         features_df["batting_team_won"] = batting_team_won(df)
 
         features_df = features_df.loc[df["innings"] == 2]
